@@ -150,6 +150,8 @@ class WatermarkController {
     this.rafId = null;
     this.resizeObserver = null;
     this.boundMetadataHandler = this.updateBounds.bind(this);
+    this.boundPlayHandler = this.handlePlaybackChange.bind(this, true);
+    this.boundPauseHandler = this.handlePlaybackChange.bind(this, false);
     this.init();
   }
 
@@ -184,6 +186,10 @@ class WatermarkController {
     this.video.addEventListener("loadedmetadata", this.boundMetadataHandler);
     this.video.addEventListener("loadeddata", this.boundMetadataHandler);
     this.video.addEventListener("emptied", this.boundMetadataHandler);
+    this.video.addEventListener("play", this.boundPlayHandler);
+    this.video.addEventListener("playing", this.boundPlayHandler);
+    this.video.addEventListener("pause", this.boundPauseHandler);
+    this.video.addEventListener("ended", this.boundPauseHandler);
 
     if (typeof ResizeObserver !== "undefined") {
       this.resizeObserver = new ResizeObserver(() => this.updateBounds());
@@ -347,6 +353,8 @@ class WatermarkController {
     };
 
     randomize();
+    if (!this.canAnimate()) return;
+
     const interval = Math.max(300, Number(this.settings.randomIntervalMs) || DEFAULT_SETTINGS.randomIntervalMs);
     this.modeTimer = window.setInterval(randomize, interval);
   }
@@ -370,6 +378,11 @@ class WatermarkController {
     };
 
     let lastTime = performance.now();
+    this.renderPosition();
+    if (!this.canAnimate()) {
+      return;
+    }
+
     const tick = (now) => {
       if (!this.settings.enabled) return;
       const deltaMs = now - lastTime;
@@ -408,15 +421,27 @@ class WatermarkController {
 
   handleVisibility(isVisible) {
     if (!isVisible) {
-      if (this.settings.mode === "bounce" && this.rafId) {
-        window.cancelAnimationFrame(this.rafId);
-        this.rafId = null;
-      }
-    } else {
-      if (this.settings.mode === "bounce" && !this.rafId) {
-        this.applyBounce();
-      }
+      this.stopAnimations();
+      return;
     }
+    if (!this.canAnimate()) return;
+    if (this.settings.mode === "bounce" && !this.rafId) {
+      this.applyBounce();
+    } else if (this.settings.mode === "random-pop" && !this.modeTimer) {
+      this.applyRandomPop();
+    }
+  }
+
+  handlePlaybackChange(isPlaying) {
+    if (!isPlaying) {
+      this.stopAnimations();
+      return;
+    }
+    this.applyMode();
+  }
+
+  canAnimate() {
+    return this.settings.enabled && this.video && !this.video.paused && !this.video.ended;
   }
 
   stopAnimations() {
@@ -435,6 +460,10 @@ class WatermarkController {
     this.video.removeEventListener("loadedmetadata", this.boundMetadataHandler);
     this.video.removeEventListener("loadeddata", this.boundMetadataHandler);
     this.video.removeEventListener("emptied", this.boundMetadataHandler);
+    this.video.removeEventListener("play", this.boundPlayHandler);
+    this.video.removeEventListener("playing", this.boundPlayHandler);
+    this.video.removeEventListener("pause", this.boundPauseHandler);
+    this.video.removeEventListener("ended", this.boundPauseHandler);
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
