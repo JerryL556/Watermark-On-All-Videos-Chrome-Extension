@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Video Watermark Overlay",
+  "description": "Adds a dynamic watermark to all videos on a page with static, random, or bouncing modes.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage"
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Video Watermark"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

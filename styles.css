@@ -1,0 +1,43 @@
+.wmx-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2147480000;
+}
+
+.wmx-watermark {
+  position: absolute;
+  white-space: nowrap;
+  user-select: none;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  opacity: 0.6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  will-change: transform;
+}
+
+.wmx-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  will-change: transform;
+}
+
+.wmx-image {
+  display: block;
+  pointer-events: none;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+}
+
+.wmx-hidden {
+  display: none !important;
+}
