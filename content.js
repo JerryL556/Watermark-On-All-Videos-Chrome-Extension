@@ -17,6 +17,13 @@ const DEFAULT_SETTINGS = {
   randomIntervalMs: 1200,
   bounceSpeed: 80, // pixels per second
   shadow: true,
+  hdrEnabled: false,
+  hdrStrength: 0.6,
+  hdrSpecularLift: 0.25,
+  hdrLocalContrast: 0.2,
+  hdrVibrance: 0.18,
+  hdrSaturationGuard: true,
+  hdrExposure: 1,
   debug: false
 };
 
@@ -143,6 +150,7 @@ class WatermarkController {
     this.markEl = null;
     this.textEl = null;
     this.imageEl = null;
+    this.baseFilter = "";
     this.bounds = { width: 0, height: 0 };
     this.position = { x: 0, y: 0 };
     this.velocity = { x: 0, y: 0 };
@@ -205,6 +213,7 @@ class WatermarkController {
     } else {
       this.overlay?.classList.add("wmx-hidden");
     }
+    this.applyHdrEffect();
   }
 
   refreshContent() {
@@ -256,6 +265,7 @@ class WatermarkController {
   updateSettings(settings) {
     this.settings = { ...settings, offset: { ...settings.offset } };
     this.applyStyle();
+    this.applyHdrEffect();
     this.applyMode();
     this.updateBounds();
   }
@@ -293,6 +303,7 @@ class WatermarkController {
     this.stopAnimations();
     if (!this.settings.enabled) {
       this.overlay?.classList.add("wmx-hidden");
+      this.applyHdrEffect(true);
       return;
     }
     this.overlay?.classList.remove("wmx-hidden");
@@ -455,6 +466,69 @@ class WatermarkController {
     }
   }
 
+  applyHdrEffect(forceDisable = false) {
+    if (!this.video) return;
+    if (!this.baseFilter) {
+      const inlineFilter = this.video.style.filter;
+      const computedFilter = getComputedStyle(this.video).filter;
+      this.baseFilter = inlineFilter || computedFilter || "none";
+    }
+
+    const hdrActive = this.settings.enabled && this.settings.hdrEnabled && !forceDisable;
+    if (!hdrActive) {
+      this.video.style.filter = this.baseFilter === "none" ? "" : this.baseFilter;
+      return;
+    }
+
+    const strength = clamp(Number(this.settings.hdrStrength), 0, 1, DEFAULT_SETTINGS.hdrStrength);
+    const exposure = clamp(
+      Number(this.settings.hdrExposure),
+      0.7,
+      1.3,
+      DEFAULT_SETTINGS.hdrExposure
+    );
+    const specular = clamp(
+      Number(this.settings.hdrSpecularLift),
+      0,
+      0.6,
+      DEFAULT_SETTINGS.hdrSpecularLift
+    );
+    const localContrast = clamp(
+      Number(this.settings.hdrLocalContrast),
+      0,
+      0.6,
+      DEFAULT_SETTINGS.hdrLocalContrast
+    );
+    const vibrance = clamp(Number(this.settings.hdrVibrance), 0, 0.6, DEFAULT_SETTINGS.hdrVibrance);
+    const saturationGuard = Boolean(this.settings.hdrSaturationGuard);
+
+    const contrastBoost = 1 + localContrast * strength * 1.2 + specular * strength * 0.25;
+    const brightnessBoost = clamp(
+      (0.94 + specular * strength * 0.22 + localContrast * strength * 0.04) * exposure,
+      0.85,
+      1.2
+    );
+    const saturationBoost = 1 + vibrance * strength * (saturationGuard ? 0.7 : 1);
+    const highlightsBloom = Math.min(10, 5 + strength * 10);
+    const glowAlpha = Math.min(0.22, 0.08 + specular * 0.25);
+
+    const hdrFilter = [
+      `contrast(${contrastBoost.toFixed(3)})`,
+      `brightness(${brightnessBoost.toFixed(3)})`,
+      `saturate(${saturationBoost.toFixed(3)})`,
+      `drop-shadow(0 0 ${highlightsBloom.toFixed(1)}px rgba(255,255,255,${glowAlpha.toFixed(3)}))`
+    ].join(" ");
+
+    const baseFilter = this.baseFilter === "none" ? "" : this.baseFilter;
+    this.video.style.filter = `${baseFilter} ${hdrFilter}`.trim();
+  }
+
+  restoreBaseFilter() {
+    if (this.video) {
+      this.video.style.filter = this.baseFilter === "none" ? "" : this.baseFilter;
+    }
+  }
+
   destroy() {
     this.stopAnimations();
     this.video.removeEventListener("loadedmetadata", this.boundMetadataHandler);
@@ -471,10 +545,12 @@ class WatermarkController {
     if (this.overlay && this.overlay.parentElement) {
       this.overlay.parentElement.removeChild(this.overlay);
     }
+    this.restoreBaseFilter();
   }
 }
 
-function clamp(value, min, max) {
-  if (Number.isNaN(value)) return min;
-  return Math.min(Math.max(value, min), max);
+function clamp(value, min, max, fallback) {
+  const num = Number(value);
+  if (Number.isNaN(num)) return fallback !== undefined ? fallback : min;
+  return Math.min(Math.max(num, min), max);
 }

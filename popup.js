@@ -17,6 +17,13 @@ const DEFAULT_SETTINGS = {
   randomIntervalMs: 1200,
   bounceSpeed: 80,
   shadow: true,
+  hdrEnabled: false,
+  hdrStrength: 0.6,
+  hdrSpecularLift: 0.25,
+  hdrLocalContrast: 0.2,
+  hdrVibrance: 0.18,
+  hdrSaturationGuard: true,
+  hdrExposure: 1,
   debug: false
 };
 
@@ -55,6 +62,14 @@ function cacheElements() {
     "randomIntervalMs",
     "bounceSpeed",
     "shadow",
+    "hdrEnabled",
+    "hdrStrength",
+    "hdrSpecularLift",
+    "hdrLocalContrast",
+    "hdrVibrance",
+    "hdrSaturationGuard",
+    "hdrExposure",
+    "hdrResetBtn",
     "saveBtn",
     "imageFile",
     "textSection",
@@ -87,7 +102,15 @@ function attachEvents() {
     imageMaintainRatio,
     randomIntervalMs,
     bounceSpeed,
-    shadow
+    shadow,
+    hdrEnabled,
+    hdrStrength,
+    hdrSpecularLift,
+    hdrLocalContrast,
+    hdrVibrance,
+    hdrSaturationGuard,
+    hdrExposure,
+    hdrResetBtn
   ];
   inputs.forEach((el) => {
     if (!el) return;
@@ -114,6 +137,7 @@ function attachEvents() {
 
   saveBtn?.addEventListener("click", saveSettings);
   imageFile?.addEventListener("change", handleImageUpload);
+  hdrResetBtn?.addEventListener("click", resetHdrToDefaults);
 }
 
 function populateForm(settings) {
@@ -138,6 +162,8 @@ function populateForm(settings) {
   syncOffsetInputs(settings.offset);
   updateContentVisibility(settings.contentMode);
   updatePlacementVisibility(settings.mode);
+  syncOpacityInputs(settings);
+  populateHdr(settings);
 }
 
 function handleChange() {
@@ -158,13 +184,21 @@ function handleChange() {
     imageMaintainRatio: imageMaintainRatio.checked,
     randomIntervalMs: randomIntervalMs.value,
     bounceSpeed: bounceSpeed.value,
-    shadow: shadow.checked
+    shadow: shadow.checked,
+    hdrEnabled: hdrEnabled.checked,
+    hdrStrength: hdrStrength.value,
+    hdrSpecularLift: hdrSpecularLift.value,
+    hdrLocalContrast: hdrLocalContrast.value,
+    hdrVibrance: hdrVibrance.value,
+    hdrSaturationGuard: hdrSaturationGuard.checked,
+    hdrExposure: hdrExposure.value
   });
   imageScaleY.disabled = imageMaintainRatio.checked;
   syncOffsetInputs(currentSettings.offset);
   syncOpacityInputs(currentSettings);
   updateContentVisibility(currentSettings.contentMode);
   updatePlacementVisibility(currentSettings.mode);
+  updateHdrControls(currentSettings.hdrEnabled);
 }
 
 function normalizeSettings(settings) {
@@ -182,11 +216,18 @@ function normalizeSettings(settings) {
     imageScaleY: clamp(settings.imageScaleY, 0.05, 3, DEFAULT_SETTINGS.imageScaleY),
     imageMaintainRatio: Boolean(settings.imageMaintainRatio),
     randomIntervalMs: clamp(settings.randomIntervalMs, 200, 10000, DEFAULT_SETTINGS.randomIntervalMs),
-    bounceSpeed: clamp(settings.bounceSpeed, 10, 500, DEFAULT_SETTINGS.bounceSpeed)
+    bounceSpeed: clamp(settings.bounceSpeed, 10, 500, DEFAULT_SETTINGS.bounceSpeed),
+    hdrEnabled: Boolean(settings.hdrEnabled),
+    hdrStrength: clamp(settings.hdrStrength, 0, 1, DEFAULT_SETTINGS.hdrStrength),
+    hdrSpecularLift: clamp(settings.hdrSpecularLift, 0, 0.6, DEFAULT_SETTINGS.hdrSpecularLift),
+    hdrLocalContrast: clamp(settings.hdrLocalContrast, 0, 0.6, DEFAULT_SETTINGS.hdrLocalContrast),
+    hdrVibrance: clamp(settings.hdrVibrance, 0, 0.6, DEFAULT_SETTINGS.hdrVibrance),
+    hdrSaturationGuard: Boolean(settings.hdrSaturationGuard),
+    hdrExposure: clamp(settings.hdrExposure, 0.7, 1.3, DEFAULT_SETTINGS.hdrExposure)
   };
 }
 
-function saveSettings({ keepOpen = false } = {}) {
+function saveSettings({ keepOpen = true } = {}) {
   persistSettings(currentSettings, () => {
     if (!keepOpen) {
       window.close();
@@ -244,6 +285,36 @@ function clamp(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
   return Math.min(Math.max(num, min), max);
+}
+
+function populateHdr(settings) {
+  if (hdrEnabled) hdrEnabled.checked = settings.hdrEnabled;
+  if (hdrStrength) hdrStrength.value = settings.hdrStrength;
+  if (hdrSpecularLift) hdrSpecularLift.value = settings.hdrSpecularLift;
+  if (hdrLocalContrast) hdrLocalContrast.value = settings.hdrLocalContrast;
+  if (hdrVibrance) hdrVibrance.value = settings.hdrVibrance;
+  if (hdrSaturationGuard) hdrSaturationGuard.checked = settings.hdrSaturationGuard;
+  if (hdrExposure) hdrExposure.value = settings.hdrExposure;
+  updateHdrControls(settings.hdrEnabled);
+}
+
+function updateHdrControls(enabledValue) {
+  const controls = document.querySelectorAll("#hdrControls input");
+  controls.forEach((el) => {
+    el.disabled = !enabledValue;
+  });
+}
+
+function resetHdrToDefaults() {
+  hdrEnabled.checked = DEFAULT_SETTINGS.hdrEnabled;
+  hdrStrength.value = DEFAULT_SETTINGS.hdrStrength;
+  hdrSpecularLift.value = DEFAULT_SETTINGS.hdrSpecularLift;
+  hdrLocalContrast.value = DEFAULT_SETTINGS.hdrLocalContrast;
+  hdrVibrance.value = DEFAULT_SETTINGS.hdrVibrance;
+  hdrSaturationGuard.checked = DEFAULT_SETTINGS.hdrSaturationGuard;
+  hdrExposure.value = DEFAULT_SETTINGS.hdrExposure;
+  updateHdrControls(DEFAULT_SETTINGS.hdrEnabled);
+  handleChange();
 }
 
 function updateContentVisibility(modeValue = contentMode?.value) {

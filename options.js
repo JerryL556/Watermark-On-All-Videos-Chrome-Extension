@@ -17,6 +17,13 @@ const DEFAULT_SETTINGS = {
   randomIntervalMs: 1200,
   bounceSpeed: 80,
   shadow: true,
+  hdrEnabled: false,
+  hdrStrength: 0.6,
+  hdrSpecularLift: 0.25,
+  hdrLocalContrast: 0.2,
+  hdrVibrance: 0.18,
+  hdrSaturationGuard: true,
+  hdrExposure: 1,
   debug: false
 };
 
