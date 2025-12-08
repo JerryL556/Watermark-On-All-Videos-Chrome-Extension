@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   debug: false
 };
 
+// Live copy of user settings used for the form + preview.
 let currentSettings = { ...DEFAULT_SETTINGS };
 let previewController;
 let saveTimeout;
@@ -45,6 +46,7 @@ function initOptions() {
 }
 
 function cacheElements() {
+  // Stash DOM references on window to keep later lookups trivial.
   const ids = [
     "enabled",
     "text",
@@ -103,6 +105,7 @@ function attachEvents() {
 
   inputs.forEach((el) => {
     if (!el) return;
+    // Use input for live sliders/text; change for selects/checkboxes to avoid noisy updates.
     const eventName = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(eventName, handleChange);
   });
@@ -118,6 +121,7 @@ function attachEvents() {
 }
 
 function populateForm(settings) {
+  // Seed the UI from stored values; options page always starts fully hydrated.
   enabled.checked = settings.enabled;
   text.value = settings.text;
   mode.value = settings.mode;
@@ -141,6 +145,7 @@ function populateForm(settings) {
 }
 
 function handleChange() {
+  // Rebuild settings object from form values and push to preview + storage.
   currentSettings = {
     ...currentSettings,
     enabled: enabled.checked,
@@ -175,6 +180,7 @@ function handleImageUpload(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
+    // Promote image mode automatically when an asset is uploaded.
     currentSettings = {
       ...currentSettings,
       imageData: reader.result,
@@ -208,6 +214,7 @@ function updateImageUI(imageData) {
 
 function toggleScaleY(keepRatio) {
   if (!imageScaleYWrapper) return;
+  // Hide the Y-scale control when constrained to preserve aspect ratio.
   imageScaleYWrapper.style.display = keepRatio ? "none" : "inline-flex";
 }
 
@@ -215,6 +222,7 @@ function queueSave() {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
   }
+  // Debounce writes so rapid slider movement doesn't hammer storage.
   saveTimeout = setTimeout(saveSettings, 350);
 }
 
@@ -228,6 +236,7 @@ function saveSettings() {
 
 function loadSettings() {
   return new Promise((resolve) => {
+    // Prefer sync values but hydrate imageData from local if it was offloaded.
     chrome.storage.sync.get(DEFAULT_SETTINGS, (syncItems) => {
       chrome.storage.local.get(["imageData"], (localItems) => {
         resolve({
@@ -244,6 +253,7 @@ function loadSettings() {
 function persistSettings(settings) {
   const toSync = { ...settings };
   if (toSync.imageData && toSync.imageData.length > SYNC_IMAGE_THRESHOLD) {
+    // Keep large image blobs out of sync storage to avoid quota errors.
     const { imageData, ...rest } = toSync;
     chrome.storage.local.set({ imageData });
     chrome.storage.sync.set(rest);
@@ -254,6 +264,7 @@ function persistSettings(settings) {
 }
 
 class PreviewController {
+  // Lightweight renderer to mirror watermark settings inside the options preview box.
   constructor(container, settings) {
     this.container = container;
     this.settings = { ...settings, offset: { ...settings.offset } };
@@ -371,6 +382,7 @@ class PreviewController {
       this.position = this.getStaticPosition(markRect);
       this.render();
     } else if (this.settings.mode === "random-pop") {
+      // Preview the same random jump behavior as content script.
       const randomize = () => {
         this.position = {
           x: Math.random() * maxX,
@@ -381,6 +393,7 @@ class PreviewController {
       randomize();
       this.modeTimer = setInterval(randomize, Math.max(300, this.settings.randomIntervalMs));
     } else if (this.settings.mode === "bounce") {
+      // Simulate bounce within the preview box at the configured speed.
       const angle = Math.random() * Math.PI * 2;
       this.velocity = {
         x: Math.cos(angle) * this.settings.bounceSpeed,

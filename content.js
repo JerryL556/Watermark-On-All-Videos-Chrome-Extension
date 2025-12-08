@@ -27,7 +27,9 @@ const DEFAULT_SETTINGS = {
   debug: false
 };
 
+// Holds merged user settings so controllers can read without reloading storage.
 let currentSettings = { ...DEFAULT_SETTINGS };
+// Map video elements to their watermark controller to avoid duplicate overlays.
 const controllers = new Map();
 let mutationObserver;
 let locationWatcher;
@@ -61,6 +63,7 @@ function loadSettings() {
         resolve(merged);
       };
 
+      // Pull sync + local in parallel; chrome.storage lacks a Promise API here.
       chrome.storage.sync.get(DEFAULT_SETTINGS, (syncItems) => {
         chrome.storage.local.get(["imageData"], (localItems) => {
           mergeSettings(syncItems, localItems);
@@ -75,6 +78,7 @@ function loadSettings() {
 
 function setupStorageListener() {
   if (!chrome.storage || !chrome.storage.onChanged) return;
+  // Mirror remote sync changes into current controllers without page reloads.
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "sync") return;
     let updated = false;
@@ -89,6 +93,7 @@ function setupStorageListener() {
 }
 
 function setupGlobalListeners() {
+  // Keep overlay position/visibility in sync with viewport changes.
   const onViewportChange = () => {
     controllers.forEach((controller) => controller.updateBounds());
   };
@@ -96,12 +101,14 @@ function setupGlobalListeners() {
   window.addEventListener("scroll", onViewportChange, { passive: true });
   document.addEventListener("fullscreenchange", onViewportChange);
 
+  // Pause animations when the tab is hidden to reduce work.
   document.addEventListener("visibilitychange", () => {
     controllers.forEach((controller) => controller.handleVisibility(document.visibilityState === "visible"));
   });
 }
 
 function setupMutationObserver() {
+  // Watch for SPA DOM changes so we attach overlays to videos that appear later.
   mutationObserver = new MutationObserver(() => {
     scanForVideos();
   });
@@ -113,6 +120,7 @@ function setupMutationObserver() {
 
 function setupLocationWatcher() {
   let lastHref = location.href;
+  // Some sites swap videos via history.pushState; poll for URL changes to rescan.
   locationWatcher = window.setInterval(() => {
     if (location.href !== lastHref) {
       lastHref = location.href;
@@ -123,6 +131,7 @@ function setupLocationWatcher() {
 }
 
 function scanForVideos(force = false) {
+  // Create controllers for new videos and drop ones that left the DOM.
   const videos = Array.from(document.getElementsByTagName("video"));
   videos.forEach((video) => {
     if (!controllers.has(video)) {
@@ -142,6 +151,7 @@ function scanForVideos(force = false) {
   });
 }
 
+// Manages a single overlay attached to a video element.
 class WatermarkController {
   constructor(video, settings) {
     this.video = video;
@@ -200,6 +210,7 @@ class WatermarkController {
     this.video.addEventListener("ended", this.boundPauseHandler);
 
     if (typeof ResizeObserver !== "undefined") {
+      // Keep overlay sized to dynamic video layouts (responsive players, PiP toggles).
       this.resizeObserver = new ResizeObserver(() => this.updateBounds());
       this.resizeObserver.observe(this.video);
     }
@@ -224,6 +235,7 @@ class WatermarkController {
     const showText = this.settings.contentMode === "text" || this.settings.contentMode === "both";
 
     if (showImage && this.imageEl) {
+      // Keep image sizing tied to natural dimensions so scale sliders feel predictable.
       this.imageEl.src = this.settings.imageData;
       this.imageEl.style.opacity = String(this.settings.imageOpacity);
       this.imageEl.style.width = "";
@@ -272,6 +284,7 @@ class WatermarkController {
 
   updateBounds() {
     if (!this.overlay || !this.video.isConnected) return;
+    // Mirror the overlay to the video’s on-screen box, accounting for scroll offsets.
     const rect = this.video.getBoundingClientRect();
     const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -300,6 +313,7 @@ class WatermarkController {
   }
 
   applyMode() {
+    // Switch behavior based on placement mode; pause animations when disabled.
     this.stopAnimations();
     if (!this.settings.enabled) {
       this.overlay?.classList.add("wmx-hidden");
@@ -352,6 +366,7 @@ class WatermarkController {
   }
 
   applyRandomPop() {
+    // Jump to random positions at the configured interval.
     const randomize = () => {
       const markRect = this.markEl.getBoundingClientRect();
       const maxX = Math.max(0, this.bounds.width - markRect.width);
@@ -371,6 +386,7 @@ class WatermarkController {
   }
 
   applyBounce() {
+    // Simple velocity-based bounce that reflects off overlay bounds.
     const markRect = this.markEl.getBoundingClientRect();
     const markWidth = markRect.width;
     const markHeight = markRect.height;
@@ -468,6 +484,7 @@ class WatermarkController {
 
   applyHdrEffect(forceDisable = false) {
     if (!this.video) return;
+    // Cache any existing filter so we can restore it when HDR is toggled.
     if (!this.baseFilter) {
       const inlineFilter = this.video.style.filter;
       const computedFilter = getComputedStyle(this.video).filter;

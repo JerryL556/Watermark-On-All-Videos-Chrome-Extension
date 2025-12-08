@@ -27,10 +27,12 @@ const DEFAULT_SETTINGS = {
   debug: false
 };
 
+// Holds the in-memory copy backing the popup controls.
 let currentSettings = { ...DEFAULT_SETTINGS };
 const SYNC_IMAGE_THRESHOLD = 7000; // chars; store larger images in local to avoid sync quota
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Popup initializes fast: fetch settings, paint form, then hook events.
   cacheElements();
   loadSettings().then((settings) => {
     currentSettings = settings;
@@ -40,6 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function cacheElements() {
+  // Cache frequent lookups so change handlers stay simple.
   const ids = [
     "enabled",
     "mode",
@@ -114,6 +117,7 @@ function attachEvents() {
   ];
   inputs.forEach((el) => {
     if (!el) return;
+    // Keep sliders/inputs live while using change for select/checkbox to reduce churn.
     const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(evt, handleChange);
   });
@@ -141,6 +145,7 @@ function attachEvents() {
 }
 
 function populateForm(settings) {
+  // Populate UI knobs; sliders mirror numeric inputs for quicker tweaks.
   enabled.checked = settings.enabled;
   mode.value = settings.mode;
   contentMode.value = settings.contentMode || "text";
@@ -167,6 +172,7 @@ function populateForm(settings) {
 }
 
 function handleChange() {
+  // Normalize and store latest form state; update UI toggles to match.
   currentSettings = normalizeSettings({
     ...currentSettings,
     enabled: enabled.checked,
@@ -240,6 +246,7 @@ function handleImageUpload(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
+    // Auto-switch out of text-only when an image is provided.
     currentSettings = normalizeSettings({
       ...currentSettings,
       imageData: reader.result,
@@ -254,6 +261,7 @@ function handleImageUpload(event) {
 
 function loadSettings() {
   return new Promise((resolve) => {
+    // Mirror sync defaults, but reattach large images from local storage if needed.
     chrome.storage.sync.get(DEFAULT_SETTINGS, (syncItems) => {
       chrome.storage.local.get(["imageData"], (localItems) => {
         resolve({
@@ -270,6 +278,7 @@ function loadSettings() {
 function persistSettings(settings, cb = () => {}) {
   const toSync = { ...settings };
   if (toSync.imageData && toSync.imageData.length > SYNC_IMAGE_THRESHOLD) {
+    // Keep large images in local storage to avoid sync quota complaints.
     const { imageData, ...rest } = toSync;
     chrome.storage.local.set({ imageData }, () => {
       chrome.storage.sync.set(rest, cb);
@@ -320,6 +329,7 @@ function resetHdrToDefaults() {
 function updateContentVisibility(modeValue = contentMode?.value) {
   const showText = modeValue === "text" || modeValue === "both";
   const showImage = modeValue === "image" || modeValue === "both";
+  // Hide form sections to reduce clutter based on chosen content mode.
   toggleSection(textSection, showText);
   toggleSection(imageSection, showImage);
 }
@@ -328,6 +338,7 @@ function updatePlacementVisibility(modeValue = mode?.value) {
   const showStatic = modeValue === "static";
   const showRandom = modeValue === "random-pop";
   const showBounce = modeValue === "bounce";
+  // Only expose controls relevant to the active placement mode.
   toggleSection(staticPlacementSection, showStatic);
   toggleSection(randomPlacementSection, showRandom);
   toggleSection(bouncePlacementSection, showBounce);
@@ -336,6 +347,7 @@ function updatePlacementVisibility(modeValue = mode?.value) {
 function toggleSection(sectionEl, shouldShow) {
   if (!sectionEl) return;
   sectionEl.classList.toggle("hidden", !shouldShow);
+  // Disable inputs while hidden so keyboard navigation skips them.
   sectionEl.querySelectorAll("input, select").forEach((el) => {
     if (!shouldShow) {
       if (el.dataset.preHiddenDisabled === undefined) {
