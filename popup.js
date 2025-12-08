@@ -40,11 +40,15 @@ function cacheElements() {
     "text",
     "color",
     "opacity",
+    "opacitySlider",
     "imageOpacity",
+    "imageOpacitySlider",
     "fontSize",
     "staticPosition",
     "offsetX",
     "offsetY",
+    "offsetSliderX",
+    "offsetSliderY",
     "imageScaleX",
     "imageScaleY",
     "imageMaintainRatio",
@@ -52,7 +56,12 @@ function cacheElements() {
     "bounceSpeed",
     "shadow",
     "saveBtn",
-    "imageFile"
+    "imageFile",
+    "textSection",
+    "imageSection",
+    "staticPlacementSection",
+    "randomPlacementSection",
+    "bouncePlacementSection"
   ];
   ids.forEach((id) => {
     window[id] = document.getElementById(id);
@@ -68,6 +77,7 @@ function attachEvents() {
     color,
     opacity,
     imageOpacity,
+    imageOpacitySlider,
     fontSize,
     staticPosition,
     offsetX,
@@ -85,6 +95,23 @@ function attachEvents() {
     el.addEventListener(evt, handleChange);
   });
 
+  offsetSliderX?.addEventListener("input", () => {
+    if (offsetX) offsetX.value = offsetSliderX.value;
+    handleChange();
+  });
+  offsetSliderY?.addEventListener("input", () => {
+    if (offsetY) offsetY.value = offsetSliderY.value;
+    handleChange();
+  });
+  opacitySlider?.addEventListener("input", () => {
+    if (opacity) opacity.value = opacitySlider.value;
+    handleChange();
+  });
+  imageOpacitySlider?.addEventListener("input", () => {
+    if (imageOpacity) imageOpacity.value = imageOpacitySlider.value;
+    handleChange();
+  });
+
   saveBtn?.addEventListener("click", saveSettings);
   imageFile?.addEventListener("change", handleImageUpload);
 }
@@ -96,11 +123,11 @@ function populateForm(settings) {
   text.value = settings.text;
   color.value = settings.color;
   opacity.value = settings.opacity;
+  if (opacitySlider) opacitySlider.value = settings.opacity;
   imageOpacity.value = settings.imageOpacity;
+  if (imageOpacitySlider) imageOpacitySlider.value = settings.imageOpacity;
   fontSize.value = settings.fontSize;
   staticPosition.value = settings.staticPosition;
-  offsetX.value = settings.offset.x;
-  offsetY.value = settings.offset.y;
   imageScaleX.value = settings.imageScaleX;
   imageScaleY.value = settings.imageScaleY;
   imageMaintainRatio.checked = settings.imageMaintainRatio;
@@ -108,6 +135,9 @@ function populateForm(settings) {
   bounceSpeed.value = settings.bounceSpeed;
   shadow.checked = settings.shadow;
   imageScaleY.disabled = settings.imageMaintainRatio;
+  syncOffsetInputs(settings.offset);
+  updateContentVisibility(settings.contentMode);
+  updatePlacementVisibility(settings.mode);
 }
 
 function handleChange() {
@@ -131,6 +161,10 @@ function handleChange() {
     shadow: shadow.checked
   });
   imageScaleY.disabled = imageMaintainRatio.checked;
+  syncOffsetInputs(currentSettings.offset);
+  syncOpacityInputs(currentSettings);
+  updateContentVisibility(currentSettings.contentMode);
+  updatePlacementVisibility(currentSettings.mode);
 }
 
 function normalizeSettings(settings) {
@@ -170,6 +204,8 @@ function handleImageUpload(event) {
       imageData: reader.result,
       contentMode: currentSettings.contentMode === "text" ? "image" : currentSettings.contentMode
     });
+    contentMode.value = currentSettings.contentMode;
+    updateContentVisibility(currentSettings.contentMode);
     saveSettings({ keepOpen: true });
   };
   reader.readAsDataURL(file);
@@ -208,4 +244,54 @@ function clamp(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
   return Math.min(Math.max(num, min), max);
+}
+
+function updateContentVisibility(modeValue = contentMode?.value) {
+  const showText = modeValue === "text" || modeValue === "both";
+  const showImage = modeValue === "image" || modeValue === "both";
+  toggleSection(textSection, showText);
+  toggleSection(imageSection, showImage);
+}
+
+function updatePlacementVisibility(modeValue = mode?.value) {
+  const showStatic = modeValue === "static";
+  const showRandom = modeValue === "random-pop";
+  const showBounce = modeValue === "bounce";
+  toggleSection(staticPlacementSection, showStatic);
+  toggleSection(randomPlacementSection, showRandom);
+  toggleSection(bouncePlacementSection, showBounce);
+}
+
+function toggleSection(sectionEl, shouldShow) {
+  if (!sectionEl) return;
+  sectionEl.classList.toggle("hidden", !shouldShow);
+  sectionEl.querySelectorAll("input, select").forEach((el) => {
+    if (!shouldShow) {
+      if (el.dataset.preHiddenDisabled === undefined) {
+        el.dataset.preHiddenDisabled = el.disabled ? "true" : "false";
+      }
+      el.disabled = true;
+    } else if (el.dataset.preHiddenDisabled !== undefined) {
+      el.disabled = el.dataset.preHiddenDisabled === "true";
+      delete el.dataset.preHiddenDisabled;
+    }
+  });
+}
+
+function syncOffsetInputs(offset) {
+  const x = clamp(offset?.x, 0, 200, DEFAULT_SETTINGS.offset.x);
+  const y = clamp(offset?.y, 0, 200, DEFAULT_SETTINGS.offset.y);
+  if (offsetX) offsetX.value = x;
+  if (offsetSliderX) offsetSliderX.value = x;
+  if (offsetY) offsetY.value = y;
+  if (offsetSliderY) offsetSliderY.value = y;
+}
+
+function syncOpacityInputs(settings) {
+  const textOpacity = clamp(settings.opacity, 0, 1, DEFAULT_SETTINGS.opacity);
+  const imgOpacity = clamp(settings.imageOpacity, 0, 1, DEFAULT_SETTINGS.imageOpacity);
+  if (opacity) opacity.value = textOpacity;
+  if (opacitySlider) opacitySlider.value = textOpacity;
+  if (imageOpacity) imageOpacity.value = imgOpacity;
+  if (imageOpacitySlider) imageOpacitySlider.value = imgOpacity;
 }

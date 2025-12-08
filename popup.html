@@ -21,6 +21,19 @@
       margin-bottom: 10px;
       gap: 8px;
     }
+    .toggle-row {
+      justify-content: space-between;
+    }
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .toggle-label {
+      margin: 0;
+    }
     label {
       font-weight: 600;
       font-size: 13px;
@@ -48,6 +61,61 @@
       width: 16px;
       height: 16px;
     }
+    .toggle {
+      appearance: none;
+      width: 44px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: linear-gradient(145deg, #0c1323, #11182a);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+      display: inline-flex;
+      align-items: center;
+      box-sizing: border-box;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      transform: translate(0, -50%);
+      transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+    .toggle:checked {
+      background: linear-gradient(145deg, #fbbf24, #f59e0b);
+      border-color: #f59e0b;
+      box-shadow: 0 6px 14px rgba(251, 191, 36, 0.4);
+    }
+    .toggle:checked::after {
+      transform: translate(18px, -50%);
+      background: #0f172a;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+    }
+    .toggle:active::after {
+      transform: translate(2px, -50%) scale(0.97);
+    }
+    .toggle:checked:active::after {
+      transform: translate(18px, -50%) scale(0.97);
+    }
+    .toggle:focus-visible {
+      outline: 2px solid #fbbf24;
+      outline-offset: 2px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #2563eb;
+    }
     button {
       width: 100%;
       background: #2563eb;
@@ -58,6 +126,7 @@
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+      margin-top: 4px;
     }
     .small {
       display: flex;
@@ -66,102 +135,179 @@
     .small input {
       width: 70px;
     }
-    .divider {
-      height: 1px;
-      background: #1f2937;
-      margin: 10px 0;
-      border: none;
+    .section {
+      background: #0b1220;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.4);
+    }
+    .section-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+    }
+    .section .row:last-child {
+      margin-bottom: 0;
+    }
+    .subsection-title {
+      font-weight: 600;
+      font-size: 12px;
+      color: #94a3b8;
+      margin: 6px 0 6px;
+      letter-spacing: 0.2px;
+    }
+    .subsection {
+      border: 1px dashed #1f2937;
+      border-radius: 8px;
+      padding: 8px;
+      margin-top: 4px;
+      background: #0c1323;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="row">
-    <label for="enabled">Enabled</label>
-    <input type="checkbox" id="enabled">
-  </div>
-  <div class="divider"></div>
-  <div style="font-weight:700;margin-bottom:6px;">Text</div>
-  <div class="row">
-    <label for="mode">Mode</label>
-    <select id="mode">
-      <option value="static">Static</option>
-      <option value="random-pop">Random</option>
-      <option value="bounce">Bounce</option>
-    </select>
-  </div>
-  <div class="row">
-    <label for="text">Text</label>
-    <input type="text" id="text" placeholder="WATERMARKTEST">
-  </div>
-  <div class="row">
-    <label for="color">Color</label>
-    <input type="color" id="color" value="#ffffff">
-  </div>
-  <div class="row">
-    <label for="opacity">Opacity</label>
-    <input type="number" id="opacity" min="0" max="1" step="0.05">
-  </div>
-  <div class="row">
-    <label for="fontSize">Font px</label>
-    <input type="number" id="fontSize" min="8" max="200">
-  </div>
-  <div class="row">
-    <label for="staticPosition">Position</label>
-    <select id="staticPosition">
-      <option value="top-left">Top left</option>
-      <option value="top-right">Top right</option>
-      <option value="bottom-left">Bottom left</option>
-      <option value="bottom-right">Bottom right</option>
-      <option value="center">Center</option>
-    </select>
-  </div>
-  <div class="row small">
-    <label style="min-width:60px">Offset</label>
-    <input type="number" id="offsetX" min="0" max="200" placeholder="X">
-    <input type="number" id="offsetY" min="0" max="200" placeholder="Y">
-  </div>
-  <div class="divider"></div>
-  <div style="font-weight:700;margin-bottom:6px;">Image</div>
-  <div class="row">
-    <label for="contentMode">Content</label>
-    <select id="contentMode">
-      <option value="text">Text only</option>
-      <option value="image">Image only</option>
-      <option value="both">Both</option>
-    </select>
-  </div>
-  <div class="row">
-    <label for="imageFile">Image</label>
-    <input type="file" id="imageFile" accept="image/*">
-  </div>
-  <div class="row">
-    <label for="imageOpacity">Img opacity</label>
-    <input type="number" id="imageOpacity" min="0" max="1" step="0.05">
-  </div>
-  <div class="row">
-    <label for="imageScaleX">Image scale</label>
-    <div class="small" style="flex:1">
-      <input type="number" id="imageScaleX" min="0.05" max="3" step="0.05" placeholder="X">
-      <input type="number" id="imageScaleY" min="0.05" max="3" step="0.05" placeholder="Y">
+  <div class="section">
+    <div class="section-title">Status</div>
+    <div class="row toggle-row">
+      <label class="toggle-wrapper" for="enabled">
+        <span class="toggle-label">Enabled</span>
+        <input type="checkbox" id="enabled" class="toggle">
+      </label>
     </div>
   </div>
-  <div class="row">
-    <label for="imageMaintainRatio">Keep ratio</label>
-    <input type="checkbox" id="imageMaintainRatio" checked>
+
+  <div class="section">
+    <div class="section-title">Content</div>
+    <div class="row">
+      <label for="contentMode">Content</label>
+      <select id="contentMode">
+        <option value="text">Text only</option>
+        <option value="image">Image only</option>
+        <option value="both">Both</option>
+      </select>
+    </div>
   </div>
-  <hr class="divider">
-  <div class="row">
-    <label for="randomIntervalMs">Random ms</label>
-    <input type="number" id="randomIntervalMs" min="200" max="10000" step="50">
+
+  <div class="section" id="textSection">
+    <div class="section-title">Text watermark</div>
+    <div class="row">
+      <label for="text">Text</label>
+      <input type="text" id="text" placeholder="WATERMARKTEST">
+    </div>
+    <div class="row">
+      <label for="color">Color</label>
+      <input type="color" id="color" value="#ffffff">
+    </div>
+    <div class="row">
+      <label for="opacity">Opacity</label>
+      <input type="number" id="opacity" min="0" max="1" step="0.05">
+    </div>
+    <div class="row" style="flex-direction:column; gap:6px; align-items:stretch; margin-top:-4px;">
+      <input type="range" id="opacitySlider" min="0" max="1" step="0.01">
+    </div>
+    <div class="row">
+      <label for="fontSize">Font px</label>
+      <input type="number" id="fontSize" min="8" max="200">
+    </div>
   </div>
-  <div class="row">
-    <label for="bounceSpeed">Bounce px/s</label>
-    <input type="number" id="bounceSpeed" min="10" max="500" step="10">
+
+  <div class="section" id="imageSection">
+    <div class="section-title">Image watermark</div>
+    <div class="row">
+      <label for="imageFile">Image</label>
+      <input type="file" id="imageFile" accept="image/*">
+    </div>
+    <div class="row">
+      <label for="imageOpacity">Img opacity</label>
+      <input type="number" id="imageOpacity" min="0" max="1" step="0.05">
+    </div>
+    <div class="row" style="flex-direction:column; gap:6px; align-items:stretch; margin-top:-4px;">
+      <input type="range" id="imageOpacitySlider" min="0" max="1" step="0.01">
+    </div>
+    <div class="row">
+      <label for="imageScaleX">Image scale</label>
+      <div class="small" style="flex:1">
+        <input type="number" id="imageScaleX" min="0.05" max="3" step="0.05" placeholder="X">
+        <input type="number" id="imageScaleY" min="0.05" max="3" step="0.05" placeholder="Y">
+      </div>
+    </div>
+    <div class="row">
+      <label for="imageMaintainRatio">Keep ratio</label>
+      <input type="checkbox" id="imageMaintainRatio" checked>
+    </div>
   </div>
-  <div class="row">
-    <label for="shadow">Shadow</label>
-    <input type="checkbox" id="shadow" checked>
+
+  <div class="section">
+    <div class="section-title">Placement</div>
+    <div class="row">
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="static">Static</option>
+        <option value="random-pop">Random</option>
+        <option value="bounce">Bounce</option>
+      </select>
+    </div>
+    <div id="staticPlacementSection" class="subsection">
+      <div class="subsection-title">Static placement</div>
+      <div class="row">
+        <label for="staticPosition">Position</label>
+        <select id="staticPosition">
+          <option value="top-left">Top left</option>
+          <option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="bottom-right">Bottom right</option>
+          <option value="center">Center</option>
+        </select>
+      </div>
+      <div class="row small">
+        <label style="min-width:60px">Offset</label>
+        <input type="number" id="offsetX" min="0" max="200" placeholder="X">
+        <input type="number" id="offsetY" min="0" max="200" placeholder="Y">
+      </div>
+      <div class="row" style="flex-direction:column; gap:6px; align-items:stretch;">
+        <div class="subsection-title" style="margin:0;">Offset sliders</div>
+        <div class="row" style="gap:10px;">
+          <label style="min-width:40px">X</label>
+          <input type="range" id="offsetSliderX" min="0" max="200" step="1">
+        </div>
+        <div class="row" style="gap:10px;">
+          <label style="min-width:40px">Y</label>
+          <input type="range" id="offsetSliderY" min="0" max="200" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div id="randomPlacementSection" class="subsection hidden">
+      <div class="subsection-title">Random pop</div>
+      <div class="row">
+        <label for="randomIntervalMs">Random ms</label>
+        <input type="number" id="randomIntervalMs" min="200" max="10000" step="50">
+      </div>
+    </div>
+
+    <div id="bouncePlacementSection" class="subsection hidden">
+      <div class="subsection-title">Bounce</div>
+      <div class="row">
+        <label for="bounceSpeed">Bounce px/s</label>
+        <input type="number" id="bounceSpeed" min="10" max="500" step="10">
+      </div>
+    </div>
   </div>
+
+  <div class="section">
+    <div class="section-title">Effects</div>
+    <div class="row">
+      <label for="shadow">Shadow</label>
+      <input type="checkbox" id="shadow" checked>
+    </div>
+  </div>
+
   <button id="saveBtn">Apply</button>
 
   <script src="popup.js"></script>
