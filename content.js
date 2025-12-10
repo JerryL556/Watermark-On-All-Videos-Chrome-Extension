@@ -571,3 +571,154 @@ function clamp(value, min, max, fallback) {
   if (Number.isNaN(num)) return fallback !== undefined ? fallback : min;
   return Math.min(Math.max(num, min), max);
 }
+
+if (chrome.runtime?.onMessage?.addListener) {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "capture-frame") {
+      captureCurrentFrame().then(sendResponse);
+      return true; // keep channel open for async response
+    }
+    if (message?.type === "step-frame") {
+      stepFrame(message.direction).then(sendResponse);
+      return true;
+    }
+    return undefined;
+  });
+}
+
+function captureCurrentFrame() {
+  return new Promise((resolve) => {
+    const video = findTargetVideo();
+    if (!video) {
+      resolve({ ok: false, error: "No video element found on this page." });
+      return;
+    }
+
+    const width = video.videoWidth || video.clientWidth || 0;
+    const height = video.videoHeight || video.clientHeight || 0;
+    if (!width || !height) {
+      resolve({ ok: false, error: "Video is not ready to capture yet." });
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      resolve({ ok: false, error: "Canvas is unavailable for capture." });
+      return;
+    }
+
+    try {
+      ctx.drawImage(video, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/png");
+      resolve({ ok: true, dataUrl, width, height });
+    } catch (err) {
+      resolve({
+        ok: false,
+        error: "Unable to capture frame (likely due to cross-origin video restrictions)."
+      });
+    }
+  });
+}
+
+function findTargetVideo() {
+  const videos = Array.from(document.querySelectorAll("video"));
+  if (!videos.length) return null;
+
+  const score = (v) => {
+    const w = v.videoWidth || v.clientWidth || 0;
+    const h = v.videoHeight || v.clientHeight || 0;
+    return w * h;
+  };
+
+  const playing = videos.filter((v) => !v.paused && !v.ended && v.readyState >= 2);
+  const pool = playing.length ? playing : videos;
+  return pool.slice().sort((a, b) => score(b) - score(a))[0] || null;
+}
+
+function stepFrame(direction = 1) {
+  return new Promise((resolve) => {
+    const video = findTargetVideo();
+    if (!video) {
+      resolve({ ok: false, error: "No video element found on this page." });
+      return;
+    }
+
+    const dir = direction >= 0 ? 1 : -1;
+    const frameDuration = getFrameDuration(video);
+    const delta = frameDuration * dir;
+    const maxTime =
+      Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Number.POSITIVE_INFINITY;
+    const targetTime = clamp((video.currentTime || 0) + delta, 0, maxTime, 0);
+
+    let finished = false;
+    const finish = (payload) => {
+      if (finished) return;
+      finished = true;
+      resolve(payload);
+    };
+
+    const cleanup = () => {
+      video.removeEventListener("seeked", handleSeeked);
+      video.removeEventListener("error", handleError);
+    };
+
+    const handleSeeked = () => {
+      cleanup();
+      finish({
+        ok: true,
+        currentTime: video.currentTime,
+        delta: Math.abs(delta),
+        frameDuration
+      });
+    };
+
+    const handleError = () => {
+      cleanup();
+      finish({ ok: false, error: "Video seek failed." });
+    };
+
+    video.pause();
+    video.addEventListener("seeked", handleSeeked);
+    video.addEventListener("error", handleError);
+
+    try {
+      video.currentTime = targetTime;
+    } catch (err) {
+      cleanup();
+      finish({ ok: false, error: "Unable to move the video frame." });
+      return;
+    }
+
+    window.setTimeout(() => {
+      cleanup();
+      finish({
+        ok: true,
+        currentTime: video.currentTime,
+        delta: Math.abs(delta),
+        frameDuration
+      });
+    }, 250);
+  });
+}
+
+function getFrameDuration(video) {
+  try {
+    if (typeof video.getVideoPlaybackQuality === "function") {
+      const q = video.getVideoPlaybackQuality();
+      if (q?.totalVideoFrames && video.currentTime > 0) {
+        const fps = clamp(q.totalVideoFrames / video.currentTime, 10, 120, 30);
+        return 1 / fps;
+      }
+    }
+    if (typeof video.frameRate === "number" && video.frameRate > 0) {
+      const fps = clamp(video.frameRate, 10, 120, 30);
+      return 1 / fps;
+    }
+  } catch (err) {
+    // fall through to default
+  }
+  return 1 / 30; // sensible default when FPS is unknown
+}

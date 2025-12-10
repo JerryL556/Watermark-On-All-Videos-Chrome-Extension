@@ -4,7 +4,9 @@
   "description": "Adds a dynamic watermark to all videos on a page with static, random, or bouncing modes.",
   "version": "0.1.0",
   "permissions": [
-    "storage"
+    "storage",
+    "tabs",
+    "downloads"
   ],
   "options_page": "options.html",
   "action": {

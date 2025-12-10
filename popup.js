@@ -79,7 +79,10 @@ function cacheElements() {
     "imageSection",
     "staticPlacementSection",
     "randomPlacementSection",
-    "bouncePlacementSection"
+    "bouncePlacementSection",
+    "captureBtn",
+    "prevFrameBtn",
+    "nextFrameBtn"
   ];
   ids.forEach((id) => {
     window[id] = document.getElementById(id);
@@ -142,6 +145,9 @@ function attachEvents() {
   saveBtn?.addEventListener("click", saveSettings);
   imageFile?.addEventListener("change", handleImageUpload);
   hdrResetBtn?.addEventListener("click", resetHdrToDefaults);
+  captureBtn?.addEventListener("click", handleCaptureClick);
+  prevFrameBtn?.addEventListener("click", () => handleFrameStep(-1));
+  nextFrameBtn?.addEventListener("click", () => handleFrameStep(1));
 }
 
 function populateForm(settings) {
@@ -377,4 +383,128 @@ function syncOpacityInputs(settings) {
   if (opacitySlider) opacitySlider.value = textOpacity;
   if (imageOpacity) imageOpacity.value = imgOpacity;
   if (imageOpacitySlider) imageOpacitySlider.value = imgOpacity;
+}
+
+function handleCaptureClick() {
+  if (!captureBtn) return;
+  setCaptureButtonState(true, "Saving...");
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs?.[0];
+    if (!tab?.id) {
+      return finishCapture("Save current frame", "No active tab found.");
+    }
+    chrome.tabs.sendMessage(tab.id, { type: "capture-frame" }, (response) => {
+      if (chrome.runtime.lastError) {
+        return finishCapture(
+          "Try again",
+          `Unable to reach page script: ${chrome.runtime.lastError.message}`
+        );
+      }
+      if (!response?.ok || !response.dataUrl) {
+        return finishCapture("Try again", response?.error || "No video frame available.");
+      }
+      const filename = buildFrameFilename(response.width, response.height);
+      chrome.downloads.download(
+        {
+          url: response.dataUrl,
+          filename,
+          saveAs: false
+        },
+        (downloadId) => {
+          if (chrome.runtime.lastError || !downloadId) {
+            return finishCapture(
+              "Try again",
+              chrome.runtime.lastError?.message || "Download was blocked."
+            );
+          }
+          setCaptureButtonState(true, "Saved!");
+          window.setTimeout(() => finishCapture("Save current frame"), 1200);
+        }
+      );
+    });
+  });
+}
+
+function finishCapture(label = "Save current frame", title) {
+  setCaptureButtonState(false, label, title);
+}
+
+function setCaptureButtonState(disabled, label, title) {
+  if (!captureBtn) return;
+  captureBtn.disabled = disabled;
+  if (label) captureBtn.textContent = label;
+  if (title !== undefined) captureBtn.title = title || "";
+}
+
+function buildFrameFilename(width, height) {
+  const now = new Date();
+  const pad = (num) => String(num).padStart(2, "0");
+  const sizePart = width && height ? `-${width}x${height}` : "";
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+    now.getHours()
+  )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `video-frame-${stamp}${sizePart}.png`;
+}
+
+function handleFrameStep(direction) {
+  const activeBtn = direction < 0 ? prevFrameBtn : nextFrameBtn;
+  const otherBtn = direction < 0 ? nextFrameBtn : prevFrameBtn;
+  const defaultLabelActive = direction < 0 ? "Previous frame" : "Next frame";
+
+  setFrameButtonsState(true);
+  if (activeBtn) {
+    activeBtn.textContent = "Stepping...";
+    activeBtn.title = "";
+  }
+  if (otherBtn) otherBtn.title = "";
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs?.[0];
+    if (!tab?.id) {
+      return finishFrameStep(activeBtn, defaultLabelActive, "No active tab found.");
+    }
+    chrome.tabs.sendMessage(tab.id, { type: "step-frame", direction }, (response) => {
+      if (chrome.runtime.lastError) {
+        return finishFrameStep(
+          activeBtn,
+          defaultLabelActive,
+          `Unable to reach page script: ${chrome.runtime.lastError.message}`
+        );
+      }
+      if (!response?.ok) {
+        return finishFrameStep(activeBtn, defaultLabelActive, response?.error || "Unable to step frame.");
+      }
+      finishFrameStep(activeBtn, defaultLabelActive, "", true);
+    });
+  });
+}
+
+function finishFrameStep(activeBtn, defaultLabel, errorMsg, success = false) {
+  if (activeBtn) {
+    activeBtn.textContent = success ? "Stepped" : "Try again";
+    activeBtn.title = errorMsg || "";
+  }
+  window.setTimeout(() => {
+    resetFrameButtons();
+    if (activeBtn) {
+      activeBtn.textContent = defaultLabel;
+    }
+  }, success ? 700 : 1400);
+}
+
+function setFrameButtonsState(disabled) {
+  if (prevFrameBtn) prevFrameBtn.disabled = disabled;
+  if (nextFrameBtn) nextFrameBtn.disabled = disabled;
+}
+
+function resetFrameButtons() {
+  setFrameButtonsState(false);
+  if (prevFrameBtn) {
+    prevFrameBtn.textContent = "Previous frame";
+    prevFrameBtn.title = "";
+  }
+  if (nextFrameBtn) {
+    nextFrameBtn.textContent = "Next frame";
+    nextFrameBtn.title = "";
+  }
 }
