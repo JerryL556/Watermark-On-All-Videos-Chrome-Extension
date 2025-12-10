@@ -646,6 +646,11 @@ function stepFrame(direction = 1) {
       return;
     }
 
+    if (video.readyState === 0) {
+      resolve({ ok: false, error: "Video is not ready yet. Let it load, then try again." });
+      return;
+    }
+
     const dir = direction >= 0 ? 1 : -1;
     const frameDuration = getFrameDuration(video);
     const delta = frameDuration * dir;
@@ -662,7 +667,6 @@ function stepFrame(direction = 1) {
 
     const cleanup = () => {
       video.removeEventListener("seeked", handleSeeked);
-      video.removeEventListener("error", handleError);
     };
 
     const handleSeeked = () => {
@@ -675,20 +679,14 @@ function stepFrame(direction = 1) {
       });
     };
 
-    const handleError = () => {
-      cleanup();
-      finish({ ok: false, error: "Video seek failed." });
-    };
-
     video.pause();
     video.addEventListener("seeked", handleSeeked);
-    video.addEventListener("error", handleError);
 
     try {
       video.currentTime = targetTime;
     } catch (err) {
       cleanup();
-      finish({ ok: false, error: "Unable to move the video frame." });
+      finish({ ok: false, error: "Unable to move the video frame (seek was blocked)." });
       return;
     }
 
@@ -700,7 +698,7 @@ function stepFrame(direction = 1) {
         delta: Math.abs(delta),
         frameDuration
       });
-    }, 250);
+    }, 400);
   });
 }
 
