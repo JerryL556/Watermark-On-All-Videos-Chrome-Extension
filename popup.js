@@ -465,14 +465,10 @@ function handleFrameStep(direction) {
     }
     chrome.tabs.sendMessage(tab.id, { type: "step-frame", direction }, (response) => {
       if (chrome.runtime.lastError) {
-        return finishFrameStep(
-          activeBtn,
-          defaultLabelActive,
-          `Unable to reach page script: ${chrome.runtime.lastError.message}`
-        );
+        return fallbackStepFrame(tab.id, direction, activeBtn, defaultLabelActive);
       }
       if (!response?.ok) {
-        return finishFrameStep(activeBtn, defaultLabelActive, response?.error || "Unable to step frame.");
+        return fallbackStepFrame(tab.id, direction, activeBtn, defaultLabelActive, response?.error);
       }
       finishFrameStep(activeBtn, defaultLabelActive, "", true);
     });
@@ -507,4 +503,76 @@ function resetFrameButtons() {
     nextFrameBtn.textContent = "Next frame";
     nextFrameBtn.title = "";
   }
+}
+
+function fallbackStepFrame(tabId, direction, activeBtn, defaultLabel, priorError) {
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      func: (dir) => {
+        const clamp = (value, min, max, fallback) => {
+          const num = Number(value);
+          if (Number.isNaN(num)) return fallback !== undefined ? fallback : min;
+          return Math.min(Math.max(num, min), max);
+        };
+
+        const findVideo = () => {
+          const videos = Array.from(document.querySelectorAll("video"));
+          if (!videos.length) return null;
+          const score = (v) => {
+            const w = v.videoWidth || v.clientWidth || 0;
+            const h = v.videoHeight || v.clientHeight || 0;
+            return w * h;
+          };
+          const playing = videos.filter((v) => !v.paused && !v.ended && v.readyState >= 2);
+          const pool = playing.length ? playing : videos;
+          return pool.slice().sort((a, b) => score(b) - score(a))[0] || null;
+        };
+
+        const getFrameDuration = (video) => {
+          try {
+            if (typeof video.getVideoPlaybackQuality === "function") {
+              const q = video.getVideoPlaybackQuality();
+              if (q?.totalVideoFrames && video.currentTime > 0) {
+                const fps = clamp(q.totalVideoFrames / video.currentTime, 10, 120, 30);
+                return 1 / fps;
+              }
+            }
+            if (typeof video.frameRate === "number" && video.frameRate > 0) {
+              const fps = clamp(video.frameRate, 10, 120, 30);
+              return 1 / fps;
+            }
+          } catch (err) {}
+          return 1 / 30;
+        };
+
+        const video = findVideo();
+        if (!video) return { ok: false, error: "No video found in this tab." };
+        if (video.readyState === 0) return { ok: false, error: "Video is not ready yet." };
+
+        const frameDuration = getFrameDuration(video);
+        const delta = frameDuration * (dir >= 0 ? 1 : -1);
+        const maxTime =
+          Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Number.POSITIVE_INFINITY;
+        const targetTime = clamp((video.currentTime || 0) + delta, 0, maxTime, 0);
+
+        video.pause();
+        try {
+          video.currentTime = targetTime;
+          return { ok: true, currentTime: video.currentTime, delta: Math.abs(delta), frameDuration };
+        } catch (err) {
+          return { ok: false, error: "Unable to move the video frame (seek was blocked)." };
+        }
+      },
+      args: [direction]
+    },
+    (results) => {
+      const result = results?.[0]?.result;
+      if (!result?.ok) {
+        const msg = result?.error || priorError || "Unable to step frame.";
+        return finishFrameStep(activeBtn, defaultLabel, msg);
+      }
+      finishFrameStep(activeBtn, defaultLabel, "", true);
+    }
+  );
 }

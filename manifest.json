@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "tabs",
-    "downloads"
+    "downloads",
+    "scripting"
   ],
   "options_page": "options.html",
   "action": {
